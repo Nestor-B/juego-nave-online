@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego Online - Nave Espacial</title>
+    <link rel="shortcut icon" href="/static/nave.png" type="image/x-icon">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@10"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css"
+        integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <link rel="stylesheet" href="/static/main.css">
+</head>
+
+<body onbeforeunload="return WarningUnload()">
+
+    <div class="page-bg"></div>
+
+    <div class="animation-wrapper">
+        <div class="particle particle-1"></div>
+        <div class="particle particle-2"></div>
+        <div class="particle particle-3"></div>
+        <div class="particle particle-4"></div>
+    </div>
+
+    <div id="hide" class="bg-white">
+        <h1 class="display-3">Juego</h1>
+        <h2 class="display-4 my-3 text-info text-center">Nave Espacial</h2>
+        <p class="text-secondary text-center"><b>MODALIDAD</b> <br> Uno contra uno.</p>
+
+        <p id="myID" class="my-4 lead">
+            ID: <span>000000000000</span>
+        </p>
+        <form>
+            <div class="d-flex align-item-center">
+                <input type="text" id="ID" class="form-control" placeholder="Unirme al ID remoto">
+            </div>
+
+            <div class="d-flex align-item-center">
+                <input type="submit" value="Solicitar Acceso" class="btn btn-success block my-2" id="btnSubmit">
+            </div>
+
+            <div class="d-flex align-item-center mt-4">
+                <img id="iconRefresh" src="https://www.freeiconspng.com/thumbs/refresh-icon/refresh-icon-png-2.png"
+                    width="25" height="25" alt="">
+                <p class="esperando-conexion mx-2">Esperando permisos ...</p>
+            </div>
+        </form>
+
+        <div class="d-flex justify-content-center mt-2">
+            <button id="cancelarSolicitud" class="btn btn-secondary" onclick="cancelarSolicitud()">Cancelar
+                Solicitud</button>
+        </div>
+
+        <div class="my-3">
+            <a href="/contactame">
+                <small>Contactame</small>
+            </a>
+            <span> | </span>
+            <a href="/ayuda">
+                <small>Ayuda</small>
+            </a>
+        </div>
+    </div>
+    <div id="app">
+        1
+        <!--  -->
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.1.min.js"
+        integrity="sha256-o88AwQnZB+VDvE9tvIXrMQaPlFFSUTR+nldQm1LuPXQ=" crossorigin="anonymous"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        try {
+            let socket = io();
+            let app = document.querySelector('#app')
+            let tiempoDeLlamada = 12000
+            let timerLlamada = null
+            let status = 0
+            let NumeroPartida = 1
+            let nave1 = `<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 1000 1000" enable-background="new 0 0 1000 1000" xml:space="preserve">
+        <metadata> Svg Vector Icons : http://www.onlinewebfonts.com/icon </metadata>
+        <g class='nave' fill="white" stroke="red" stroke-width="50"><path d="M341.4,856.1l-168.2,25.7c-13.4,2-26.7-4.1-33.8-15.6l-62.7-102c-3.5-5.7-5.1-12.2-4.9-18.6c0-0.5-0.1-1.1-0.1-1.6V528.2c0-18.6,15.1-33.7,33.7-33.7c18.6,0,33.7,15.1,33.7,33.7v89.5l134.7-239.9l67.7,115.5V856.1z M894.7,494.5c-18.6,0-33.7,15.1-33.7,33.7v89.5L726.3,377.8l-67.7,115.5v362.8l168.2,25.7c13.4,2,26.7-4.1,33.8-15.7l62.7-102c3.5-5.7,5.1-12.2,4.9-18.6c0-0.5,0.1-1.1,0.1-1.6V528.2C928.3,509.6,913.3,494.5,894.7,494.5z M591.2,857.6l-57.5,42.9v55.9c0,18.6-15.1,33.7-33.7,33.7c-18.6,0-33.7-15.1-33.7-33.7v-55.9l-57.5-42.9V484.2c0-6-1.6-11.9-4.6-17l-92.2-157.4L470.6,27.2c6-10.6,17.2-17.2,29.4-17.2c12.2,0,23.4,6.6,29.4,17.2l158.7,282.6l-92.2,157.4c-3,5.2-4.6,11-4.6,17V857.6z M591,318.2c14.3-11.8,16.4-33.1,4.5-47.4c-3.9-4.7-39.7-46.2-94.7-46.2c-54.5,0-91.7,40.8-95.8,45.5c-12.3,14-10.9,35.4,3.1,47.6c6.4,5.6,14.3,8.4,22.2,8.4c9.3,0,18.6-3.9,25.2-11.4c5.7-6.3,24.9-22.6,45.3-22.6c23.9,0,42.8,21.7,42.8,21.7C555.5,328,576.7,330.1,591,318.2z"/><g></g><g></g><g></g><g></g><g></g><g></g><g></g><g></g><g></g><g></g><g></g><g></g><g></g><g></g><g></g></g>
+        </svg>`
+            let nave2 = `
+        <svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 1000 1000" enable-background="new 0 0 1000 1000" xml:space="preserve">
+        <metadata> Svg Vector Icons : http://www.onlinewebfonts.com/icon </metadata>
+        <g class='nave' fill="white" stroke="blue" stroke-width="50"><path d="M341.4,856.1l-168.2,25.7c-13.4,2-26.7-4.1-33.8-15.6l-62.7-102c-3.5-5.7-5.1-12.2-4.9-18.6c0-0.5-0.1-1.1-0.1-1.6V528.2c0-18.6,15.1-33.7,33.7-33.7c18.6,0,33.7,15.1,33.7,33.7v89.5l134.7-239.9l67.7,115.5V856.1z M894.7,494.5c-18.6,0-33.7,15.1-33.7,33.7v89.5L726.3,377.8l-67.7,115.5v362.8l168.2,25.7c13.4,2,26.7-4.1,33.8-15.7l62.7-102c3.5-5.7,5.1-12.2,4.9-18.6c0-0.5,0.1-1.1,0.1-1.6V528.2C928.3,509.6,913.3,494.5,894.7,494.5z M591.2,857.6l-57.5,42.9v55.9c0,18.6-15.1,33.7-33.7,33.7c-18.6,0-33.7-15.1-33.7-33.7v-55.9l-57.5-42.9V484.2c0-6-1.6-11.9-4.6-17l-92.2-157.4L470.6,27.2c6-10.6,17.2-17.2,29.4-17.2c12.2,0,23.4,6.6,29.4,17.2l158.7,282.6l-92.2,157.4c-3,5.2-4.6,11-4.6,17V857.6z M591,318.2c14.3-11.8,16.4-33.1,4.5-47.4c-3.9-4.7-39.7-46.2-94.7-46.2c-54.5,0-91.7,40.8-95.8,45.5c-12.3,14-10.9,35.4,3.1,47.6c6.4,5.6,14.3,8.4,22.2,8.4c9.3,0,18.6-3.9,25.2-11.4c5.7-6.3,24.9-22.6,45.3-22.6c23.9,0,42.8,21.7,42.8,21.7C555.5,328,576.7,330.1,591,318.2z"/><g></g><g></g><g></g><g></g><g></g><g></g><g></g><g></g><g></g><g></g><g></g><g></g><g></g><g></g><g></g></g>
+        </svg> `
+
+            if (!localStorage.getItem('session')) {
+                localStorage.setItem('session', Date.now())
+            }
+            socket.emit('my-session', localStorage.getItem('session'))
+
+            function CopiarTexto(e) {
+                // Get the text field
+                e.innerText = 'Copiado ✓'
+                e.style.color = 'green'
+                let copyText = document.getElementById("sid")
+                navigator.clipboard.writeText(copyText.innerText)
+            }
+
+            function CambiarSid(e) {
+                Swal.fire({
+                    html: `
+                    <h2 class='my-3'>Identificador</h2>
+                    <p>
+                        Su ID es: <b class='ID'>${e.innerText}</b>
+                    </p>
+                    <p>
+                        ¿Desea reiniciar su ID? 
+                    </p>
+                `,
+                    showCancelButton: false,
+                    showCloseButton: false,
+                    confirmButtonText: 'Sí, Reiniciar!'
+                }).then((e) => {
+                    if (e.isConfirmed) {
+                        localStorage.removeItem('session')
+                        localStorage.removeItem('ID-remoto')
+                        location.reload()
+                    }
+                })
+            }
+
+            $('#myID').html(`
+            <div class='d-flex align-items-center'>
+                <span class='mx-1 font-weight-bold'>ID:</span> 
+                <span id='sid' style='vertical-align: middle' onclick='CambiarSid(this)'>
+                    ${localStorage.getItem('session')} 
+                </span>
+                <button class='btn mx-2' onclick='CopiarTexto(this)'>
+                    Copiar
+                </button>
+            </div>
+        `)
+
+            socket.on('capture-my-session', (e) => {
+                console.log(e)
+            })
+
+            function opciones() {
+                Swal.fire({
+                    showCancelButton: false,
+                    showCloseButton: false,
+                    showConfirmButton: false,
+                    html: `
+                    <h1 class='display-4 my-2'>Opciones</h1>
+                    <a href='#' class='btn btn-lg my-2 mt-5 border' style='width: 100%;display: block;'>Solicitudes no aceptadas</a>
+                    <button class='btn btn-lg my-2' style='width: 100%;display: block;' onclick='abandonarPartida()'>Salir del Juego</button>
+                    <button class='btn btn-lg my-2' style='width: 100%;display: block;' onclick='cerrarConexion()'>Cerrar Conexion</button>
+                `
+                })
+            }
+
+            function cancelarSolicitud() {
+                clearTimeout(timerLlamada, 1)
+                socket.emit('cancelar-solicitud', {
+                    remoto: $('#ID').val(),
+                    local: localStorage.getItem('session')
+                })
+                $('#btnSubmit').prop("disabled", false)
+                $('#iconRefresh').css('visibility', 'hidden')
+                $('.esperando-conexion').css('display', 'none')
+                $('#cancelarSolicitud').css('display', 'none')
+                $('#ID').attr('readonly', false)
+            }
+
+            function cerrarConexion() {
+                localStorage.removeItem('ID-remoto')
+                socket.emit('cerrar-conexion', {
+                    remoto: $('#ID').val(),
+                    local: localStorage.getItem('session')
+                })
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Aviso',
+                    text: 'Has cerrado la conexion!'
+                }).then((e) => {
+                    localStorage.removeItem('session')
+                    setTimeout(() => {
+                        location.reload()
+                    }, 777)
+                })
+            }
+
+            function abandonarPartida() {
+                localStorage.removeItem('ID-remoto')
+                socket.emit('abandonar-partida', {
+                    remoto: $('#ID').val(),
+                    local: localStorage.getItem('session')
+                })
+                setTimeout(() => {
+                    location.reload()
+                }, 777)
+            }
+
+            socket.on('cancelar-solicitud', (e) => {
+                Swal.fire({
+                    timer: 3000,
+                    toast: true,
+                    position: 'top-right',
+                    // html: `El ID <b>${e.local}</b> ha cancelado su solicitud.`,
+                    html: `Solicitud Cancelada por ID <b>${e.local}</b>`,
+                    showConfirmButton: false
+                })
+            })
+
+            socket.on('sala-no-encontrada', () => {
+                Swal.fire({
+                    title: 'Usuario no encontrado.',
+                    html: '<p>Investigue correctamente el ID remoto o vuelva a intentarlo cuando el usuario se reconecte. </p>',
+                    icon: 'warning',
+                    showCloseButton: true,
+                    showCancelButton: false,
+                    showConfirmButton: false
+                }).then(() => {
+                    $('#btnSubmit').prop("disabled", false)
+                    $('#iconRefresh').css('visibility', 'hidden')
+                    $('.esperando-conexion').css('display', 'none')
+                    $('#cancelarSolicitud').css('display', 'none')
+                    $('#ID').attr('readonly', false)
+                    $('#ID').focus()
+                    $('#ID').select()
+                })
+            })
+
+            socket.on('cerrar-conexion', (e) => {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Aviso',
+                    text: 'La conexion ha sido cerrada!'
+                }).then((e) => {
+                    location.reload()
+                })
+            })
+
+            socket.on('abandonar-solicitud-partida', (e) => {
+                if (e.local == $('.ID').text()) {
+                    location.reload()
+                }
+                if (e.local == localStorage.getItem('ID-remoto')) {
+                    localStorage.removeItem('ID-remoto')
+                    location.reload()
+                }
+                // else {
+                //     alert()
+                //     socket.emit('solicitud-ocupada', e)
+                // }
+
+                // No recargar en remoto si no hay conexion de par
+                // Swal.fire({
+                //     timer: 10000,
+                //     icon: 'error',
+                //     html: `
+                //         <h1>Aviso de conexion</h1>
+                //         <p>Solicitud 
+                //             <b class='text-danger'>
+                //                 abortada
+                //             </b>
+                //             . ID: 
+                //             <span>
+                //                 ${e.local}
+                //             </span>
+                //         </p>
+                //     `,
+                //     showCancelButton: false,
+                //     showCloseButton: false,
+                //     showConfirmButton: false
+                // }).then(()=>{
+                //     // location.l
+                // })
+            })
+
+            socket.on('abandonar-partida', (e) => {
+                Swal.fire({
+                    title: 'Juego Finalizado!',
+                    icon: 'warning',
+                    html: `<p>El ID: <b class='ID'>${e.local}</b> ha salido del juego.</p>`,
+                    showDenyButton: false,
+                    showCancelButton: true,
+                    confirmButtonText: 'Reiniciar',
+                    cancelButtonText: 'Cancelar',
+                    allowOutsideClick: false,
+                    background: '#fff',
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        location.reload()
+                    }
+                    if (result.isDismissed) {
+                        app.removeChild(document.querySelectorAll('.box_1')[0])
+                        location.href = '/calificar'
+                    }
+                })
+            })
+
+            socket.on('warning-join', (e) => {
+                if ($('.ID').text().length == 0) {
+                    let IDlocal = e.local
+                    let IDRemoto = e.remoto
+                    Swal.fire({
+                        title: 'Permitir conexion!',
+                        icon: 'warning',
+                        html: `<p>El ID: <b class='ID'>${e.local}</b> desea unirse a partida.</p>`,
+                        showDenyButton: false,
+                        showCancelButton: true,
+                        confirmButtonText: 'Aceptar',
+                        cancelButtonText: 'Rechazar',
+                        allowOutsideClick: false,
+                        background: '#fff',
+                    }).then((result) => {
+                        /* Read more about isConfirmed, isDenied below */
+                        if (result.isDismissed) {
+                            status = 3
+                        }
+                        if (result.isConfirmed) {
+                            app.innerHTML = ''
+                            status = 1
+                            localStorage.setItem('ID-remoto', e.local)
+                            // clearTimeout(timerLlamada, 1)
+                            $('#app').prepend(`
+                        <div class='options-socket'>
+                            <div class="d-flex align-items-center" style="background: #f0f0f0;border-radius: 20px;position: relative;padding: 2px;overflow: hidden;">
+                                <button class="btn btn-lg partida" title="Numero de Partidas jugadas"># 1</button>
+                                <div class="container-p mx-1">
+                                    <div class='j2'>5</div>
+                                    <div class='j1'>5</div>
+                                </div>
+                                <button class="btn btn-lg" onclick='opciones()'>
+                                    <img src='/static/gear.svg' width='30' />
+                                </button>
+                            </div>
+                        </div>
+                    `)
+                            Swal.fire({
+                                title: 'Conexión establecida !!!',
+                                toast: true,
+                                timer: 2000,
+                                icon: 'success',
+                                position: 'top-end',
+                                showCloseButton: false,
+                                showCancelButton: false,
+                                showConfirmButton: false
+                            })
+
+                            $('#ID').val(e.local)
+                            $('#hide').hide()
+                            socket.emit('to-join', e)
+                            let jugador1 = document.createElement('div')
+                            jugador1.id = `_${e.local}`
+                            jugador1.classList.add(`_${e.local}`)
+                            jugador1.classList.add(`box`)
+                            jugador1.classList.add(`box_1`)
+                            jugador1.setAttribute('vida', 5)
+                            jugador1.title = 'Jugador Remoto'
+                            jugador1.innerHTML = nave1
+                            app.appendChild(jugador1)
+                            // 
+                            let jugador2 = document.createElement('div')
+                            jugador2.id = `_${e.remoto}`
+                            jugador2.classList.add(`_${e.remoto}`)
+                            jugador2.classList.add(`box`)
+                            jugador2.classList.add(`box_2`)
+                            jugador2.setAttribute('vida', 5)
+                            jugador2.title = 'Yo'
+                            jugador2.innerHTML = nave2
+                            jugador2.style.top = '90%'
+                            app.appendChild(jugador2)
+
+                            setInterval(() => {
+                                let bala = document.querySelectorAll('.bala')
+                                let box_1 = document.querySelectorAll('.box_2')[0]
+                                bala.forEach((e) => {
+                                    let posY = e.offsetTop + 12
+                                    if (e.classList.contains('abajo')) {
+                                        e.classList.add('_777')
+                                        e.style.top = posY + 'px'
+                                    }
+                                    if (e && box_1 && e.offsetLeft >= box_1.offsetLeft - e.offsetWidth && e.offsetLeft <= box_1.offsetLeft + box_1.offsetHeight && e.offsetTop >= box_1.offsetTop - 6 && e.offsetTop <= box_1.offsetTop + box_1.offsetHeight) {
+                                        let vida = parseInt(box_1.getAttribute('vida'))
+                                        if (vida > 1) {
+                                            let v = vida -= 1
+                                            box_1.setAttribute('vida', v)
+                                            $('.j2').text(v)
+                                            // box_1.innerText = v
+                                        } else {
+                                            // 
+                                            box_1.style.display = 'none'
+                                            // ReiniciarJuego({
+                                            //     title: 'GameOver',
+                                            //     html: `
+                                            //         <h3>Has perdido la partida.</h3>
+                                            //         <p>Reiniciando Partida.</p>
+                                            //     `
+                                            // })
+                                            // Swal.fire({
+                                            //     title: 'GameOver',
+                                            //     icon: 'warning',
+                                            //     html: `<p>Has perdido la partida.</p>`,
+                                            //     showDenyButton: false,
+                                            //     showCancelButton: true,
+                                            //     confirmButtonText: 'Crear otra partida',
+                                            //     cancelButtonText: 'Salir',
+                                            //     allowOutsideClick: false,
+                                            //     background: '#fff',
+                                            // }).then((result) => {
+                                            //     if (result.isConfirmed) {
+                                            //         // app.innerHTML = ''
+                                            //         // Reiniciar partida
+                                            //         ReiniciarJuego()
+                                            //     }
+                                            // })
+                                        }
+                                        app.removeChild(e)
+                                    }
+                                    if (e.offsetTop >= innerHeight - 40) {
+                                        app.removeChild(e)
+                                    }
+                                })
+                            }, 30)
+                        } else if (result.isDismissed) {
+                            // Notificar a usuario sobre la conexion
+                            socket.emit('rechazar-conexion', {
+                                remoto: IDlocal,
+                                local: localStorage.getItem('session')
+                            })
+                        }
+                    })
+                } else {
+                    socket.emit('solicitud-ocupada', e)
+                }
+            })
+
+            let interval = false
+            socket.on('joined', (e) => {
+                app.innerHTML = ''
+                status = 1
+                localStorage.setItem('ID-remoto', e.remoto)
+                $('#app').prepend(`
+                <div class='options-socket'>
+                    <div class="d-flex align-items-center" style="background: #f0f0f0;border-radius: 20px;position: relative;padding: 2px;overflow: hidden;">
+                        <button class="btn btn-lg partida" title="Numero de Partidas jugadas"># 1</button>
+                        <div class="container-p mx-1">
+                            <div class='j2'>5</div>
+                            <div class='j1'>5</div>
+                        </div>
+                        <button class="btn btn-lg" onclick='opciones()'>
+                            <img src='/static/gear.svg' width='30' />
+                        </button>
+                    </div>
+                </div>
+            `)
+
+                Swal.fire({
+                    title: 'Conexión establecida !!!',
+                    toast: true,
+                    icon: 'success',
+                    position: 'top-end',
+                    timer: 2000,
+                    showCloseButton: false,
+                    showCancelButton: false,
+                    showConfirmButton: false
+                })
+                $('#hide').hide()
+                let jugador1 = document.createElement('div')
+                jugador1.id = `_${e.remoto}`
+                jugador1.classList.add(`_${e.remoto}`)
+                jugador1.classList.add(`box`)
+                jugador1.classList.add(`box_1`)
+                jugador1.setAttribute('vida', 5)
+                jugador1.title = 'Jugador Remoto'
+                jugador1.innerHTML = nave1
+                app.appendChild(jugador1)
+                // 
+                let jugador2 = document.createElement('div')
+                jugador2.id = `_${e.local}`
+                jugador2.classList.add(`_${e.local}`)
+                jugador2.classList.add(`box`)
+                jugador2.classList.add(`box_2`)
+                jugador2.setAttribute('vida', 5)
+                jugador2.title = 'Yo'
+                jugador2.innerHTML = nave2
+                jugador2.style.top = '90%'
+                app.appendChild(jugador2)
+                if (interval == false) {
+                    interval = true
+                    setInterval((e) => {
+                        let bala = document.querySelectorAll('.bala')
+                        let box_1 = document.querySelectorAll('.box_2')[0]
+                        bala.forEach((e) => {
+                            let posY = e.offsetTop + 12
+                            if (e.classList.contains('abajo')) {
+                                e.style.top = posY + 'px'
+                            }
+                            if (e && box_1 && e.offsetLeft >= box_1.offsetLeft - e.offsetWidth && e.offsetLeft <= box_1.offsetLeft + box_1.offsetHeight && e.offsetTop >= box_1.offsetTop - 6 && e.offsetTop <= box_1.offsetTop + box_1.offsetHeight) {
+                                app.removeChild(e)
+                                let vida = parseInt(box_1.getAttribute('vida'))
+                                if (vida > 1) {
+                                    let v = vida -= 1
+                                    box_1.setAttribute('vida', v)
+                                    $('.j2').text(v)
+                                    // box_1.innerText = v
+                                } else {
+                                    // 
+                                    box_1.style.display = 'none'
+                                    Swal.fire({
+                                        title: 'GameOver',
+                                        icon: 'warning',
+                                        html: `<p>Has perdido la partida.</p>`,
+                                        showDenyButton: false,
+                                        showCancelButton: true,
+                                        confirmButtonText: 'Crear otra partida',
+                                        cancelButtonText: 'Salir',
+                                        allowOutsideClick: false,
+                                        background: '#fff',
+                                    }).then((result) => {
+                                        if (result.isConfirmed) {
+                                            // app.innerHTML = ''
+                                            // Reiniciar partida
+                                            // ReiniciarJuego({
+                                            //     title: 'GameOver',
+                                            //     html: `
+                                            //         <h3>Has perdido la partida.</h3>
+                                            //         <p>Reiniciando Partida.</p>
+                                            //     `
+                                            // })
+                                        }
+                                    })
+                                }
+                            }
+                            if (e.offsetTop > innerHeight - 40) {
+                                app.removeChild(e)
+                            }
+                        })
+                    }, 30, e)
+                }
+            })
+
+            socket.on('enemigos', () => {
+                console.log(true)
+            })
+
+            socket.on('solicitud-ocupada', () => {
+                status = 3
+                Swal.fire({
+                    title: `Partida en linea ocupada!`,
+                    toast: true,
+                    icon: 'warning',
+                    position: 'top-end',
+                    timer: 10000,
+                    showCloseButton: true,
+                    showCancelButton: false,
+                    showConfirmButton: false
+                })
+                $('#iconRefresh').css('visibility', 'hidden')
+                $('.esperando-conexion').css('display', 'none')
+                $('#cancelarSolicitud').css('display', 'none')
+                $('#ID').attr('readonly', false)
+                $('#btnSubmit').prop("disabled", false)
+            })
+
+            socket.on('partida-ocupada', (e) => {
+                status = 3
+                Swal.fire({
+                    title: `Partida en linea ocupada!`,
+                    toast: true,
+                    icon: 'warning',
+                    position: 'top-end',
+                    timer: 10000,
+                    showCloseButton: true,
+                    showCancelButton: false,
+                    showConfirmButton: false
+                })
+                $('#iconRefresh').css('visibility', 'hidden')
+                $('.esperando-conexion').css('display', 'none')
+                $('#cancelarSolicitud').css('display', 'none')
+                $('#ID').attr('readonly', false)
+                $('#btnSubmit').prop("disabled", false)
+            })
+
+            socket.on('rechazar-conexion', (e) => {
+                Swal.fire({
+                    title: 'Conexion rechazada!',
+                    toast: true,
+                    icon: 'warning',
+                    position: 'top-end',
+                    timer: 10000,
+                    showCloseButton: true,
+                    showCancelButton: false,
+                    showConfirmButton: false
+                })
+                $('#iconRefresh').css('visibility', 'hidden')
+                $('.esperando-conexion').css('display', 'none')
+                $('#cancelarSolicitud').css('display', 'none')
+                $('#ID').attr('readonly', false)
+                $('#btnSubmit').prop("disabled", false)
+            })
+
+            socket.on('move', (e) => {
+                let bloq = document.querySelector('#_' + e.local)
+                let pox = e.posX
+                bloq.style.left = pox + 'px'
+            })
+
+            let interval2 = false
+            socket.on('crear-bala', (e) => {
+                let bala = document.createElement('div')
+                bala.classList.add('bala')
+                bala.classList.add('abajo')
+                bala.classList.add('bg-danger')
+                bala.style.top = (document.querySelector('#_' + e.local).offsetTop + 60) + 'px'
+                bala.style.left = (document.querySelector('#_' + e.local).getBoundingClientRect().x + 20) + 'px'
+                app.appendChild(bala)
+            })
+
+            setInterval(() => {
+                let bala = document.querySelectorAll('.bala')
+                let box_1 = document.querySelectorAll('.box_1')[0]
+                bala.forEach((e) => {
+                    let posY = e.offsetTop - 11.9
+                    if (e.classList.contains('arriba')) {
+                        e.style.top = posY + 'px'
+                    }
+                    if (e && box_1 && e.offsetLeft >= box_1.offsetLeft - e.offsetWidth && e.offsetLeft <= box_1.offsetLeft + box_1.offsetHeight && e.offsetTop >= box_1.offsetTop - 6 && e.offsetTop <= box_1.offsetTop + box_1.offsetHeight) {
+                        app.removeChild(e)
+                        let vida = parseInt(box_1.getAttribute('vida'))
+                        if (vida > 1) {
+                            let v = vida -= 1
+                            box_1.setAttribute('vida', v)
+                            $('.j1').text(v)
+                            // box_1.innerText = v
+                        } else {
+                            // 
+                            box_1.style.display = 'none'
+                            ReiniciarJuego({
+                                html: `
+                                <h1 class='text-success my-4'>Felicitaciones</h1>
+                                <h3>Has Ganado la partida.</h3>
+                                <p>Reiniciando ...</p>
+                                <button class='btn text-danger' onclick='abandonarPartida()'>Salir de Juego</button>
+                                <p class='my-3'><b class='b'></b></p>
+                            `
+                            })
+                            // Swal.fire({
+                            //     title: 'Felicitaciones!!!',
+                            //     icon: 'warning',
+                            //     html: `<p>Has Ganado la partida.</p>`,
+                            //     showDenyButton: false,
+                            //     showCancelButton: true,
+                            //     confirmButtonText: 'Crear otra partida',
+                            //     cancelButtonText: 'Salir',
+                            //     allowOutsideClick: false,
+                            //     background: '#fff',
+                            // }).then((result) => {
+                            //     if (result.isConfirmed) {
+                            //         // app.innerHTML = ''
+                            //         // Reiniciar partida
+                            //         ReiniciarJuego()
+                            //     }
+                            // })
+                        }
+                    }
+                    if (e.offsetTop > innerHeight - 40) {
+                        app.removeChild(e)
+                    }
+                })
+            }, 30)
+
+            $(document).on('keyup', (event) => {
+                if (event.keyCode == 13 && document.querySelector('#_' + localStorage.getItem('session'))) {
+                    let bala = document.createElement('div')
+                    bala.classList.add('bala')
+                    bala.classList.add('arriba')
+                    bala.classList.add('bg-primary')
+                    bala.style.top = (document.querySelector('#_' + localStorage.getItem('session')).offsetTop - 20) + 'px'
+                    bala.style.left = (document.querySelector('#_' + localStorage.getItem('session')).offsetLeft + 19) + 'px'
+                    app.appendChild(bala)
+
+                    socket.emit('crear-bala', {
+                        remoto: $('#ID').val(),
+                        local: localStorage.getItem('session'),
+                        posX: (document.querySelector('#_' + localStorage.getItem('session')).offsetLeft + 19),
+                        posY: document.querySelector('#_' + localStorage.getItem('session')).offsetTop
+                    })
+                }
+                if (event.keyCode == 39) {
+                    let bloq = document.querySelector('#_' + localStorage.getItem('session'))
+                    let pox = bloq.offsetLeft + 50
+                    bloq.style.left = pox + 'px'
+
+                    socket.emit('move', {
+                        remoto: $('#ID').val(),
+                        local: localStorage.getItem('session'),
+                        posX: pox,
+                        posY: $('#_' + localStorage.getItem('session')).offset().top
+                    })
+                }
+                if (event.keyCode == 37) {
+                    let bloq = document.querySelector('#_' + localStorage.getItem('session'))
+                    let pox = bloq.offsetLeft - 50
+                    bloq.style.left = pox + 'px'
+
+                    socket.emit('move', {
+                        remoto: $('#ID').val(),
+                        local: localStorage.getItem('session'),
+                        posX: pox,
+                        posY: $('#_' + localStorage.getItem('session')).offset().top
+                    })
+                }
+            })
+
+            socket.on('tiempo-llamada-agotado', (e) => {
+                if (status == 0) {
+                    Swal.fire({
+                        toast: true,
+                        position: 'top-right',
+                        html: '<b>Solicitud interrumpida.</b>',
+                        timer: 5000,
+                        showConfirmButton: false,
+                        showCancelButton: false,
+                        showCloseButton: false
+                    }).then(() => {
+                        $('#iconRefresh').css('visibility', 'hidden')
+                        $('.esperando-conexion').css('display', 'none')
+                        $('#cancelarSolicitud').css('display', 'none')
+                        $('#ID').attr('readonly', false)
+                        $('#btnSubmit').prop("disabled", false)
+
+                        // let fecha = Date.now()
+                        // let datos = {
+                        //     ID: e.local,
+                        //     date: fecha 
+                        // }
+                        // localStorage.setItem('interrumpido', JSON.stringify(datos))
+                    })
+                }
+            })
+
+            socket.on('reiniciar-partida', (e) => {
+                let timerInterval
+                Swal.fire({
+                    html: `
+                    <h1 class='text-danger my-4'>GameOver</h1>
+                    <h3>Has Perdido la partida.</h3>
+                    <p>Reiniciando ...</p>
+                    <button class='btn text-danger' onclick='abandonarPartida()'>Salir de Juego</button>
+                    <p class='my-3'><b class='b'></b></p>
+                `,
+                    timer: 12000,
+                    timerProgressBar: true,
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading()
+                        const b = Swal.getHtmlContainer().querySelectorAll('.b')[0]
+                        console.log(b)
+                        timerInterval = setInterval(() => {
+                            b.innerText = parseInt(Swal.getTimerLeft() / 1000) + ' s'
+                        }, 1000)
+                    },
+                    willClose: () => {
+                        clearInterval(timerInterval)
+                        let numb = ++NumeroPartida
+                        $('.partida').text('# ' + numb)
+                        $('.j2').text('5')
+                        $('.j1').text('5')
+                    }
+                }).then((result) => {
+                    /* Read more about handling dismissals below */
+                    if (result.dismiss === Swal.DismissReason.timer) {
+                        $(`.box_2`).css('display', 'flex')
+                        $(`.box_2`).attr('vida', 5)
+                    }
+                })
+            })
+
+            function ReiniciarJuego(t) {
+                socket.emit('reiniciar-partida', {
+                    remoto: $('#ID').val(),
+                    local: localStorage.getItem('session')
+                })
+                let timerInterval
+                Swal.fire({
+                    title: t.title,
+                    html: t.html,
+                    timer: 12000,
+                    timerProgressBar: true,
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading()
+                        const b = Swal.getHtmlContainer().querySelectorAll('.b')[0]
+                        timerInterval = setInterval(() => {
+                            b.innerText = parseInt(Swal.getTimerLeft() / 1000) + ' s'
+                        }, 1000)
+                    },
+                    willClose: () => {
+                        clearInterval(timerInterval)
+                        let numb = ++NumeroPartida
+                        $('.partida').text('# ' + numb)
+                        $('.j2').text('5')
+                        $('.j1').text('5')
+                    }
+                }).then((result) => {
+                    /* Read more about handling dismissals below */
+                    if (result.dismiss === Swal.DismissReason.timer) {
+                        $(`.box_1`).css('display', 'flex')
+                        $(`.box_1`).attr('vida', 5)
+                    }
+                })
+            }
+
+            function WarningUnload() {
+                localStorage.removeItem('ID-remoto')
+                clearTimeout(timerLlamada, 1)
+                if (localStorage.getItem('session')) {
+                    socket.emit('abandonar-solicitud-partida', {
+                        remoto: $('#ID').val(),
+                        local: localStorage.getItem('session')
+                    })
+                    // return "Write something clever here...";
+                }
+            }
+
+            function TIMER() {
+                timerLlamada = setTimeout(() => {
+                    if (status == 0) {
+                        socket.emit('tiempo-llamada-agotado', {
+                            remoto: $('#ID').val(),
+                            local: localStorage.getItem('session')
+                        })
+                        $('#ID').val('')
+                        Swal.fire({
+                            toast: true,
+                            position: 'top-right',
+                            html: '<b>Llamada con espera agotada.</b>',
+                            timer: 5000,
+                            showConfirmButton: false,
+                            showCancelButton: false,
+                            showCloseButton: false
+                        }).then(() => {
+                            $('#iconRefresh').css('visibility', 'hidden')
+                            $('.esperando-conexion').css('display', 'none')
+                            $('#cancelarSolicitud').css('display', 'none')
+                            $('#ID').attr('readonly', false)
+                            $('#btnSubmit').prop("disabled", false)
+                        })
+                    }
+                }, tiempoDeLlamada)
+            }
+
+            $('#btnSubmit').on('click', () => {
+                event.preventDefault()
+                if (/^[0-9]{11,}$/.test($('#ID').val())) {
+                    TIMER()
+                    socket.emit('join-user', { remoto: $('#ID').val(), local: localStorage.getItem('session') })
+                    $('#btnSubmit').prop("disabled", true)
+                    $('#iconRefresh').css('visibility', 'visible')
+                    $('.esperando-conexion').css('display', 'block')
+                    $('#cancelarSolicitud').css('display', 'block')
+                    $('#ID').attr('readonly', true)
+                } else {
+                    $('#ID').focus()
+                }
+            })
+        } catch (error) {
+
+        }
+    </script>
+
+</body>
+
+<!-- 
+
+                            <button class='btn' title='Salir del Juego.' onclick='abandonarPartida()'>Salir</button>
+                            <button class='btn btn-danger mx-2' title='Cerrar conexion.' onclick='cerrarConexion()'>
+                                Cerrar Conexion
+                            </button>
+
+                            localStorage.setItem('ID-remoto')
+ -->
+
+</html>

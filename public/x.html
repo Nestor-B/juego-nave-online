@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego</title>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@10"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css"
+        integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <style>
+        * {
+            user-zoom: fixed;
+            box-sizing: border-box;
+        }
+
+        .options-socket {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            padding: 1em;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            z-index: 10;
+        }
+
+        body.swal2-shown > [aria-hidden="true"] {
+            transition: 0.1s filter;
+            filter: blur(10px);
+        }
+
+        body {
+            height: 100vh;
+        }
+
+        #hide {
+            position: fixed;
+            top: 25%;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .ID {
+            color: goldenrod;
+        }
+
+        .box {
+            background: red;
+            width: 50px;
+            height: 50px;
+            position: absolute;
+            left: calc(50% - 25px);
+            top: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .box_1 {
+            background: fuchsia;
+            animation: focus 1s infinite;
+        }
+
+        .bala {
+            width: 10px;
+            height: 10px;
+            background: rgb(57, 57, 49);
+            position: absolute;
+        }
+
+        @keyframes focus {
+            to {
+                box-shadow: 0 0 10px red;
+            }
+        }
+
+        img {
+            vertical-align: middle;
+            visibility: hidden;
+            animation: rotar 600ms infinite linear;
+        }
+
+        .esperando-conexion {
+            display: none;
+            text-align: center;
+        }
+
+        @keyframes rotar {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .block {
+            display: block;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body onbeforeunload="return WarningUnload()">
+
+    <div id="hide">
+        <h1 class="display-3">Juego</h1>
+        <h2 class="display-4 my-3 text-info text-center">Nave Espacial</h2>
+        <p class="text-secondary text-center"><b>MODALIDAD</b> <br> Uno contra uno.</p>
+
+        <p id="myID" class="my-4 lead">ID: <span>000000000000</span></p>
+        <form>
+            <input type="text" id="ID" class="form-control" placeholder="Unirme al ID remoto">
+            <input type="submit" value="Solicitar Acceso" class="btn btn-success block my-2" id="btnSubmit">
+
+            <div class="d-flex align-item-center my-4">
+                <img id="iconRefresh" src="https://www.freeiconspng.com/thumbs/refresh-icon/refresh-icon-png-2.png"
+                    width="25" height="25" alt="">
+                <p class="esperando-conexion mx-2">Esperando permisos ...</p>
+            </div>
+        </form>
+    </div>
+    <div id="app">
+        <!--  -->
+    </div>
+
+    <img src="nave.png" alt="">
+
+    <script src="https://code.jquery.com/jquery-3.6.1.min.js"
+        integrity="sha256-o88AwQnZB+VDvE9tvIXrMQaPlFFSUTR+nldQm1LuPXQ=" crossorigin="anonymous"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        let socket = io();
+        let app = document.querySelector('#app')
+
+        if (!localStorage.getItem('session')) {
+            localStorage.setItem('session', Date.now())
+        }
+        socket.emit('my-session', localStorage.getItem('session'))
+
+        $('#myID').text('ID: ' + localStorage.getItem('session'))
+        socket.on('capture-my-session', (e) => {
+            console.log(e)
+        })
+
+        function cerrarConexion() {
+            socket.emit('cerrar-conexion', {
+                remoto: $('#ID').val(),
+                local: localStorage.getItem('session')
+            })
+            Swal.fire({
+                icon: 'warning',
+                title: 'Aviso',
+                text: 'Has cerrado la conexion!'
+            }).then((e) => {
+                localStorage.removeItem('session')
+                setTimeout(() => {
+                    location.reload()
+                }, 777)
+            })
+        }
+
+        function abandonarPartida(){
+            socket.emit('abandonar-partida', {
+                remoto: $('#ID').val(),
+                local: localStorage.getItem('session')
+            })          
+            setTimeout(() => {
+                location.reload()
+            }, 777)  
+        }
+
+        socket.on('cerrar-conexion', (e) => {
+            Swal.fire({
+                icon: 'warning',
+                title: 'Aviso',
+                text: 'La conexion ha sido cerrada!'
+            }).then((e) => {
+                location.reload()
+            })
+        })
+
+        socket.on('abandonar-partida', (e) => {
+            Swal.fire({
+                title: 'Juego Finalizado!',
+                icon: 'warning',
+                html: `<p>El ID: <b class='ID'>${e.local}</b> ha salido del juego.</p>`,
+                showDenyButton: false,
+                showCancelButton: true,
+                confirmButtonText: 'Reiniciar',
+                cancelButtonText: 'Cancelar',
+                allowOutsideClick: false,
+                background: '#fff',
+            }).then((result) => {
+                location.reload()
+            })
+        })
+
+        socket.on('warning-join', (e) => {
+            let IDlocal = e.local
+            Swal.fire({
+                title: 'Permitir conexion!',
+                icon: 'warning',
+                html: `<p>El ID: <b class='ID'>${e.local}</b> desea unirse a partida.</p>`,
+                showDenyButton: false,
+                showCancelButton: true,
+                confirmButtonText: 'Aceptar',
+                cancelButtonText: 'Rechazar',
+                allowOutsideClick: false,
+                background: '#fff',
+            }).then((result) => {
+                /* Read more about isConfirmed, isDenied below */
+                if (result.isConfirmed) {
+                    app.innerHTML = ''
+
+                    $('#app').prepend(`
+                        <div class='options-socket'>
+                            <button class='btn' title='Salir del Juego.' onclick='abandonarPartida()'>Salir</button>
+                            <button class='btn btn-danger mx-2' title='Cerrar conexion.' onclick='cerrarConexion()'>
+                                Cerrar Conexion
+                            </button>
+                        </div>
+                    `)
+                    Swal.fire({
+                        title: 'Conexión establecida !!!',
+                        toast: true,
+                        timer: 2000,
+                        icon: 'success',
+                        position: 'top-end',
+                        showCloseButton: false,
+                        showCancelButton: false,
+                        showConfirmButton: false
+                    })
+
+                    $('#ID').val(e.local)
+                    $('#hide').hide()
+                    socket.emit('to-join', e)
+                    let jugador1 = document.createElement('div')
+                    jugador1.id = `_${e.local}`
+                    jugador1.classList.add(`_${e.local}`)
+                    jugador1.classList.add(`box`)
+                    jugador1.classList.add(`box_1`)
+                    jugador1.setAttribute('vida', 5)
+                    jugador1.title = 'Jugador Remoto'
+                    jugador1.innerText = 5
+                    app.appendChild(jugador1)
+                    // 
+                    let jugador2 = document.createElement('div')
+                    jugador2.id = `_${e.remoto}`
+                    jugador2.classList.add(`_${e.remoto}`)
+                    jugador2.classList.add(`box`)
+                    jugador2.classList.add(`box_2`)
+                    jugador2.setAttribute('vida', 5)
+                    jugador2.title = 'Yo'
+                    jugador2.innerText = 5
+                    jugador2.style.top = '90%'
+                    app.appendChild(jugador2)
+
+                    setInterval(() => {
+                        let bala = document.querySelectorAll('.bala')
+                        let box_1 = document.querySelectorAll('.box_2')[0]
+                        bala.forEach((e) => {
+                            let posY = e.offsetTop + 10
+                            if (e.classList.contains('abajo')) {
+                                e.style.top = posY + 'px'
+                            }
+                            if (e && box_1 && e.offsetLeft >= box_1.offsetLeft - e.offsetWidth && e.offsetLeft <= box_1.offsetLeft + box_1.offsetHeight && e.offsetTop >= box_1.offsetTop - 6 && e.offsetTop <= box_1.offsetTop + box_1.offsetHeight) {
+                                let vida = parseInt(box_1.getAttribute('vida'))
+                                if (vida > 1) {
+                                    let v = vida -= 1
+                                    box_1.setAttribute('vida', v)
+                                    box_1.innerText = v
+                                } else {
+                                    app.removeChild(box_1)
+                                    Swal.fire({
+                                        title: 'GameOver',
+                                        text: 'Perdiste!!!'
+                                    })
+                                }
+                                app.removeChild(e)
+                            }
+                            if (e.offsetTop >= innerHeight - 40) {
+                                app.removeChild(e)
+                            }
+                        })
+                    }, 30)
+                } else if (result.isDismissed) {
+                    // Notificar a usuario sobre la conexion
+                    socket.emit('rechazar-conexion', {
+                        remoto: IDlocal,
+                        local: localStorage.getItem('session')
+                    })
+                }
+            })
+        })
+
+        let interval = false
+        socket.on('joined', (e) => {
+            app.innerHTML = ''
+            
+            $('#app').prepend(`
+                <div class='options-socket'>
+                    <button class='btn' onclick='abandonarPartida()'>Salir</button>
+                </div>
+            `)
+
+            Swal.fire({
+                title: 'Conexión establecida !!!',
+                toast: true,
+                icon: 'success',
+                position: 'top-end',
+                timer: 2000,
+                showCloseButton: false,
+                showCancelButton: false,
+                showConfirmButton: false
+            })
+            $('#hide').hide()
+            let jugador1 = document.createElement('div')
+            jugador1.id = `_${e.remoto}`
+            jugador1.classList.add(`_${e.remoto}`)
+            jugador1.classList.add(`box`)
+            jugador1.classList.add(`box_1`)
+            jugador1.setAttribute('vida', 5)
+            jugador1.title = 'Jugador Remoto'
+            jugador1.innerText = 5
+            app.appendChild(jugador1)
+            // 
+            let jugador2 = document.createElement('div')
+            jugador2.id = `_${e.local}`
+            jugador2.classList.add(`_${e.local}`)
+            jugador2.classList.add(`box`)
+            jugador2.classList.add(`box_2`)
+            jugador2.setAttribute('vida', 5)
+            jugador2.title = 'Yo'
+            jugador2.innerText = 5
+            jugador2.style.top = '90%'
+            app.appendChild(jugador2)
+            if (interval == false) {
+                interval = true
+                setInterval((e) => {
+                    let bala = document.querySelectorAll('.bala')
+                    let box_1 = document.querySelectorAll('.box_2')[0]
+                    bala.forEach((e) => {
+                        let posY = e.offsetTop + 10
+                        if (e.classList.contains('abajo')) {
+                            e.style.top = posY + 'px'
+                        }
+                        if (e && box_1 && e.offsetLeft >= box_1.offsetLeft - e.offsetWidth && e.offsetLeft <= box_1.offsetLeft + box_1.offsetHeight && e.offsetTop >= box_1.offsetTop - 6 && e.offsetTop <= box_1.offsetTop + box_1.offsetHeight) {
+                            app.removeChild(e)
+                            let vida = parseInt(box_1.getAttribute('vida'))
+                            if (vida > 1) {
+                                let v = vida -= 1
+                                box_1.setAttribute('vida', v)
+                                box_1.innerText = v
+                            } else {
+                                app.removeChild(box_1)
+                                Swal.fire({
+                                    title: 'GameOver',
+                                    text: 'Perdiste!!!'
+                                })
+                            }
+                        }
+                        if (e.offsetTop > innerHeight - 40) {
+                            app.removeChild(e)
+                        }
+                    })
+                }, 30, e)
+            }
+        })
+
+        socket.on('enemigos', () => {
+            console.log(true)
+        })
+
+        socket.on('partida-ocupada', (e) => {
+            Swal.fire({
+                title: `Partida en linea ocupada!`,
+                toast: true,
+                icon: 'warning',
+                position: 'top-end',
+                timer: 10000,
+                showCloseButton: true,
+                showCancelButton: false,
+                showConfirmButton: false
+            })
+            $('#iconRefresh').css('visibility', 'hidden')
+            $('.esperando-conexion').css('display', 'none')
+            $('#btnSubmit').prop("disabled", false)            
+        })
+
+        socket.on('rechazar-conexion', (e) => {
+            Swal.fire({
+                title: 'Conexion rechazada!',
+                toast: true,
+                icon: 'warning',
+                position: 'top-end',
+                timer: 10000,
+                showCloseButton: true,
+                showCancelButton: false,
+                showConfirmButton: false
+            })
+            $('#iconRefresh').css('visibility', 'hidden')
+            $('.esperando-conexion').css('display', 'none')
+            $('#btnSubmit').prop("disabled", false)
+        })
+
+        socket.on('move', (e) => {
+            let bloq = document.querySelector('#_' + e.local)
+            let pox = e.posX
+            bloq.style.left = pox + 'px'
+        })
+
+        let interval2 = false
+        socket.on('crear-bala', (e) => {
+            let bala = document.createElement('div')
+            bala.classList.add('bala')
+            bala.classList.add('abajo')
+            bala.style.top = (document.querySelector('#_' + e.local).offsetTop + 60) + 'px'
+            bala.style.left = e.posX + 'px'
+            app.appendChild(bala)
+        })
+
+        setInterval(() => {
+            let bala = document.querySelectorAll('.bala')
+            let box_1 = document.querySelectorAll('.box_1')[0]
+            bala.forEach((e) => {
+                let posY = e.offsetTop - 10
+                if (e.classList.contains('arriba')) {
+                    e.style.top = posY + 'px'
+                }
+                if (e && box_1 && e.offsetLeft >= box_1.offsetLeft - e.offsetWidth && e.offsetLeft <= box_1.offsetLeft + box_1.offsetHeight && e.offsetTop >= box_1.offsetTop - 6 && e.offsetTop <= box_1.offsetTop + box_1.offsetHeight) {
+                    app.removeChild(e)
+                    let vida = parseInt(box_1.getAttribute('vida'))
+                    if (vida > 1) {
+                        let v = vida -= 1
+                        box_1.setAttribute('vida', v)
+                        box_1.innerText = v
+                    } else {
+                        app.removeChild(box_1)
+                        Swal.fire({
+                            title: 'Felicitaciones!',
+                            text: 'Ganaste!!!'
+                        })
+                    }
+                }
+                if (e.offsetTop > innerHeight - 40) {
+                    app.removeChild(e)
+                }
+            })
+        }, 30)
+
+        $(document).on('keyup', (event) => {
+            if (event.keyCode == 13 && document.querySelector('#_' + localStorage.getItem('session'))) {
+                let bala = document.createElement('div')
+                bala.classList.add('bala')
+                bala.classList.add('arriba')
+                bala.style.top = (document.querySelector('#_' + localStorage.getItem('session')).offsetTop - 60) + 'px'
+                bala.style.left = (document.querySelector('#_' + localStorage.getItem('session')).offsetLeft + 19) + 'px'
+                app.appendChild(bala)
+
+                socket.emit('crear-bala', {
+                    remoto: $('#ID').val(),
+                    local: localStorage.getItem('session'),
+                    posX: (document.querySelector('#_' + localStorage.getItem('session')).offsetLeft + 19),
+                    posY: document.querySelector('#_' + localStorage.getItem('session')).offsetTop
+                })
+            }
+            if (event.keyCode == 39) {
+                let bloq = document.querySelector('#_' + localStorage.getItem('session'))
+                let pox = bloq.offsetLeft + 50
+                bloq.style.left = pox + 'px'
+
+                socket.emit('move', {
+                    remoto: $('#ID').val(),
+                    local: localStorage.getItem('session'),
+                    posX: pox,
+                    posY: $('#_' + localStorage.getItem('session')).offset().top
+                })
+            }
+            if (event.keyCode == 37) {
+                let bloq = document.querySelector('#_' + localStorage.getItem('session'))
+                let pox = bloq.offsetLeft - 50
+                bloq.style.left = pox + 'px'
+
+                socket.emit('move', {
+                    remoto: $('#ID').val(),
+                    local: localStorage.getItem('session'),
+                    posX: pox,
+                    posY: $('#_' + localStorage.getItem('session')).offset().top
+                })
+            }
+        })
+
+        $('#btnSubmit').on('click', () => {
+            event.preventDefault()
+            if (/^[0-9]{10,}$/.test($('#ID').val())) {
+                $('#btnSubmit').prop("disabled", true)
+                socket.emit('join-user', { remoto: $('#ID').val(), local: localStorage.getItem('session') })
+                $('#iconRefresh').css('visibility', 'visible')
+                $('.esperando-conexion').css('display', 'block')
+            } else {
+                $('#ID').focus()
+            }
+        })
+
+        function WarningUnload() {
+            return "Write something clever here...";
+        }
+    </script>
+
+</body>
+
+</html>
